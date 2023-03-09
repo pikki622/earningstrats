@@ -15,8 +15,7 @@ def get_days_to_expiration(symbol):
     exps = tk.options
     e = exps[0]
     dt_obj = datetime.strptime(e, '%Y-%m-%d')
-    days_left = abs((datetime.now() - dt_obj).days)
-    return days_left
+    return abs((datetime.now() - dt_obj).days)
 
 def get_earliest_deadline_options_chain(symbol):
     """ Get call and put options for earliest deadline
@@ -56,24 +55,24 @@ def get_expected_move(symbol):
     stock = yf.Ticker(symbol)
     curr = stock.history(period='1d')['Close'][0]
     options = get_earliest_deadline_options_chain(symbol)
-        
+
     test_list = list(set(options.strike))
     temp = sorted(test_list, key=lambda x:abs(x-curr))
     if len(temp) < 3:
         return "Error"
-    
+
     minVal = temp[0]
-    higherVal = temp[1] if temp[1] > temp[2] else temp[2]
-    lowerVal = temp[2] if temp[1] > temp[2] else temp[1]
-    
+    higherVal = max(temp[1], temp[2])
+    lowerVal = min(temp[1], temp[2])
+
     strad = options.loc[options.strike == minVal]
     low_stran = options.loc[options.strike == lowerVal]
     high_stran = options.loc[options.strike == higherVal]
-    
+
     # IV Expected Move = Stock Price x (Implied Volatility / 100) x square root of (Days to Expiration / 365)
     expected_move = curr * strad.impliedVolatility * math.sqrt(get_days_to_expiration(symbol)/365)
     per = expected_move / curr
-    
+
     straddle_sum = 0
     if len(strad.mark) == 2:
         straddle_sum = strad.mark.sum()
@@ -85,7 +84,7 @@ def get_expected_move(symbol):
     low_mark = low_stran.loc[low_stran.isCall == False].mark
     if not high_mark.empty and not low_mark.empty:
         strangle_sum = high_mark.iloc[0] + low_mark.iloc[0]
-    
+
     # If mark price or bid/ask price is 0, use last price to calculuate straddle and strangle Move
     if straddle_sum == 0:
         if len(strad.lastPrice) == 2:
@@ -100,13 +99,13 @@ def get_expected_move(symbol):
 
     # Straddle Expected Move = 70% of ATM straddle + 30% of 1st Strangle
     total = 0.7 * (straddle_sum) + 0.3 * (strangle_sum)
-    
-    
+
+
     # If IV Move is too low, only straddle move
     avg = (per.mean() + (straddle_sum / curr)) / 2
     if(per.mean() <= 0.01):
         avg = straddle_sum / curr
-    
+
     # IV Expected, ATM Straddle, ATM Straddle + 1st Strangle, Avg of IV + ATM
     return (per.mean(), straddle_sum / curr, total / curr, avg)
 
