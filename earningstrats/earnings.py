@@ -22,15 +22,11 @@ def get_stock_earnings_price_effect(symbol, period = "5y"):
         earn_date = earning['startdatetime']
         dt_obj = datetime.strptime(earn_date, '%Y-%m-%dT%H:%M:%S.000Z')
         date = dt_obj.date()
-        
-        # If hour is < 14, count as BMO, else count as AMC
-        if(dt_obj.hour < 14): 
-            is_AMC = False
-        else:
-            is_AMC = True
 
+        # If hour is < 14, count as BMO, else count as AMC
+        is_AMC = dt_obj.hour >= 14
+        earning_day = hist.loc[(hist.index == str(date))]
         if is_AMC:
-            earning_day = hist.loc[(hist.index == str(date))]
             earning_next_day = hist.loc[hist.index == str(date + timedelta(days = 1))]
             if not earning_day.empty and not earning_next_day.empty:
                 earning_effect_close_to_next_open = earning_next_day["Open"].iloc[0] - earning_day["Close"].iloc[0]
@@ -42,7 +38,6 @@ def get_stock_earnings_price_effect(symbol, period = "5y"):
                                   earning_effect_close_to_next_close * 100 / earning_day["Close"].iloc[0]]
 
         else:
-            earning_day = hist.loc[(hist.index == str(date))]
             earning_prev_day = hist.loc[hist.index == str(date - timedelta(days = 1))]
             if not earning_day.empty and not earning_prev_day.empty:
                 earning_effect_prev_close_to_open = earning_day["Open"].iloc[0] -  earning_prev_day["Close"].iloc[0]
@@ -56,11 +51,11 @@ def get_stock_earnings_price_effect(symbol, period = "5y"):
     earn_data = pd.DataFrame.from_dict(data, orient='index',
                 columns=['day_close_to_next_day_open', '%change_close_to_next_open',
                         'day_close_to_next_day_close', '%change_close_to_next_close'])
-    
+
     new_row = pd.DataFrame({'day_close_to_next_day_open':earn_data['day_close_to_next_day_open'].abs().mean(), '%change_close_to_next_open':earn_data['%change_close_to_next_open'].abs().mean(), 
                             'day_close_to_next_day_close':earn_data['day_close_to_next_day_close'].abs().mean(), '%change_close_to_next_close':earn_data['%change_close_to_next_close'].abs().mean()}, 
                            index=["Absolute Average"])
-    
+
     std = pd.DataFrame({'day_close_to_next_day_open':earn_data['day_close_to_next_day_open'].abs().std(), '%change_close_to_next_open':earn_data['%change_close_to_next_open'].abs().std(), 
                             'day_close_to_next_day_close':earn_data['day_close_to_next_day_close'].abs().std(), '%change_close_to_next_close':earn_data['%change_close_to_next_close'].abs().std()}, 
                            index=["Standard Deviation"])
